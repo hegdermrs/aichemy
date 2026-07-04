@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AIchemy
 
-## Getting Started
+Transmute AI concepts to discover new ones — an alchemy-themed take on Infinite
+Craft. Every recipe is **permanent**: the same pair always yields the same result,
+for every player, forever.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router) · TypeScript · Tailwind v4 · Framer Motion · Zustand
+- **Postgres** (Prisma ORM) · **Redis** (ioredis) — 4-tier cache for instant lookups
+- **Claude** (Anthropic) for generating genuinely new combinations, with a
+  deterministic offline mock fallback so the app runs with **zero** API cost.
+
+## Quick start
+
+Prerequisites: Node 20+, Docker Desktop.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env          # optionally add ANTHROPIC_API_KEY
+npm install
+npm run setup                 # docker up + prisma generate + db push + seed
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run setup` starts Postgres (host port **5433**) and Redis (host port **6380**)
+via Docker, pushes the schema, and seeds the 8 starter concepts. The non-standard
+host ports avoid clashing with other local Postgres/Redis instances.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Without an `ANTHROPIC_API_KEY`, combinations are produced by a deterministic local
+generator (results are labelled as offline mocks). Add a key to `.env` to enable
+real Claude-generated concepts — no other change needed.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How it works
 
-## Learn More
+Combining two concepts resolves through a strict lookup chain so a pair is ever
+generated at most once (see [`lib/combine.ts`](lib/combine.ts)):
 
-To learn more about Next.js, take a look at the following resources:
+1. **In-process LRU** (~0ms)
+2. **Redis** (<10ms)
+3. **Postgres** (<50ms)
+4. **Claude generation** — the only path that hits the model; result is then
+   persisted to Postgres and warmed into Redis + memory.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pairs are normalized alphabetically (`normalizePair` in [`lib/pair.ts`](lib/pair.ts))
+so `LLM + Memory` and `Memory + LLM` are the same recipe. Permanence is enforced by
+a unique `pairKey` on the `Recipe` table.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run setup` | One-shot: docker up + generate + db push + seed |
+| `npm run db:up` / `db:down` | Start / stop Postgres + Redis |
+| `npm run db:push` | Sync Prisma schema to the database |
+| `npm run db:seed` | Seed starter concepts |
+| `npm run db:studio` | Open Prisma Studio |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Endpoint | Description |
+| --- | --- |
+| `POST /api/combine` | `{ leftId, rightId }` → result concept + cache source + discovery flags |
+| `GET /api/concepts` | Starter concepts (`?all=true` for every known concept) |
+
+## Roadmap
+
+This is Milestone 1 — the core craft loop. Planned on top of this foundation:
+graph view, rarity-driven premium animations, achievements, daily challenges,
+statistics dashboard, personal timeline, category progress, background recipe
+pre-generation, SSE queue for slow generations, offline support, and the admin
+dashboard.

@@ -1,0 +1,117 @@
+// Infinite AI Craft — data model.
+// Core invariant: every unique combination of two concepts maps to exactly one
+// result, permanently. Enforced by the unique `pairKey` on Recipe.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model Concept {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  emoji       String
+  description String
+  category    String
+  rarity      Rarity   @default(COMMON)
+  isStarter   Boolean  @default(false)
+  // Total number of times this concept has been produced by a craft, globally.
+  craftCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  firstDiscoveryUserId String?
+  firstDiscoveryUser   User?   @relation("ConceptDiscoveries", fields: [firstDiscoveryUserId], references: [id])
+
+  // Recipes in which this concept appears.
+  asLeft   Recipe[] @relation("RecipeLeft")
+  asRight  Recipe[] @relation("RecipeRight")
+  asResult Recipe[] @relation("RecipeResult")
+
+  @@index([category])
+  @@index([rarity])
+}
+
+model Recipe {
+  id String @id @default(cuid())
+
+  // Normalized cache key: `${a}|${b}` where a,b are the two input concept
+  // names sorted alphabetically (case-insensitive). Guarantees permanence.
+  pairKey String @unique
+
+  leftConceptId  String
+  rightConceptId String
+  resultConceptId String
+
+  left   Concept @relation("RecipeLeft", fields: [leftConceptId], references: [id])
+  right  Concept @relation("RecipeRight", fields: [rightConceptId], references: [id])
+  result Concept @relation("RecipeResult", fields: [resultConceptId], references: [id])
+
+  // True the first time this specific recipe produced a brand-new concept.
+  isFirstDiscovery Boolean @default(false)
+  // How many times any user has triggered this pair.
+  craftCount Int @default(0)
+
+  firstDiscoveryUserId String?
+  firstDiscoveryUser   User?   @relation("RecipeDiscoveries", fields: [firstDiscoveryUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([leftConceptId, rightConceptId])
+  @@index([resultConceptId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  createdAt DateTime @default(now())
+
+  conceptDiscoveries Concept[]     @relation("ConceptDiscoveries")
+  recipeDiscoveries  Recipe[]      @relation("RecipeDiscoveries")
+  achievements       UserAchievement[]
+  workspaces         Workspace[]
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String   @default("Default")
+  // Serialized canvas state (card positions, etc.).
+  canvasState Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Achievement {
+  id          String @id @default(cuid())
+  key         String @unique
+  title       String
+  icon        String
+  description String
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+}
