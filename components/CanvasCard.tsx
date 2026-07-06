@@ -14,6 +14,7 @@ export function CanvasCard({
   onDragEndCard,
   onMove,
   onRemove,
+  onInspect,
 }: {
   item: CanvasItem;
   isHoverTarget: boolean;
@@ -22,6 +23,7 @@ export function CanvasCard({
   onDragEndCard: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onRemove: (id: string) => void;
+  onInspect: (conceptId: string) => void;
 }) {
   const x = useMotionValue(item.x);
   const y = useMotionValue(item.y);
@@ -84,6 +86,10 @@ export function CanvasCard({
         dragging.current = false;
         onMove(item.instanceId, x.get(), y.get());
         onDragEndCard(item.instanceId);
+      }}
+      onTap={() => {
+        // A tap (no drag) inspects the element.
+        if (!item.busy) onInspect(item.concept.id);
       }}
     >
       {/* Remove control — visible on hover only. */}

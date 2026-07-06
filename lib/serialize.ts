@@ -12,5 +12,6 @@ export function toConceptDTO(c: Concept): ConceptDTO {
     isStarter: c.isStarter,
     craftCount: c.craftCount,
     createdAt: c.createdAt.toISOString(),
+    firstDiscovererName: c.firstDiscovererName,
   };
 }

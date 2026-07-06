@@ -1,0 +1,9 @@
+# Netlify config. The official Next.js runtime plugin handles App Router,
+# API routes, and image optimization. DATABASE_URL / REDIS_URL / DEEPSEEK_*
+# must be set in the Netlify site environment (see DEPLOY.md).
+[build]
+  command = "prisma generate && prisma migrate deploy && next build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

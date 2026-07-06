@@ -45,6 +45,7 @@ export interface ConceptDTO {
   isStarter: boolean;
   craftCount: number;
   createdAt: string;
+  firstDiscovererName: string | null;
 }
 
 // Result of a combine request.

@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import type { ConceptDTO, CombineResult } from "@/lib/types";
 import { levelFromXp, rankForLevel, totalXp } from "@/lib/leveling";
 import { prefetchPairs, shuffle } from "@/lib/client-api";
+import { deriveState, evaluate } from "@/lib/achievements";
 
 export interface CanvasItem {
   instanceId: string;
@@ -33,6 +34,15 @@ export interface LevelUpEvent {
   at: number;
 }
 
+export interface TimelineEntry {
+  id: string;
+  name: string;
+  emoji: string;
+  rarity: ConceptDTO["rarity"];
+  isFirstCraft: boolean;
+  at: number;
+}
+
 interface GameState {
   hydrated: boolean;
   inventory: ConceptDTO[]; // unique unlocked concepts
@@ -42,8 +52,26 @@ interface GameState {
   combining: boolean;
   level: number;
   levelUp: LevelUpEvent | null;
+  view: "board" | "graph";
+  achievements: string[]; // unlocked achievement keys
+  achievementQueue: string[]; // keys waiting to be shown as a pop-up
+  achievementsOpen: boolean;
+  timeline: TimelineEntry[]; // personal discovery log, newest last
+  statsOpen: boolean;
+  playerName: string | null; // browser-remembered discoverer name (no login)
+  nameModalOpen: boolean;
+  pendingAttributionId: string | null; // concept awaiting a first-time name
+  inspectId: string | null; // concept whose detail card is open
 
   init: (starters: ConceptDTO[]) => void;
+  setView: (view: "board" | "graph") => void;
+  checkAchievements: (silent: boolean) => void;
+  dismissAchievement: () => void;
+  setAchievementsOpen: (open: boolean) => void;
+  setStatsOpen: (open: boolean) => void;
+  setPlayerName: (name: string) => void;
+  closeNameModal: () => void;
+  setInspect: (id: string | null) => void;
   spawnCard: (concept: ConceptDTO, x: number, y: number) => void;
   moveCard: (instanceId: string, x: number, y: number) => void;
   removeCard: (instanceId: string) => void;
@@ -70,6 +98,37 @@ export const useGameStore = create<GameState>()(
       combining: false,
       level: 1,
       levelUp: null,
+      view: "board",
+      achievements: [],
+      achievementQueue: [],
+      achievementsOpen: false,
+      timeline: [],
+      statsOpen: false,
+      playerName: null,
+      nameModalOpen: false,
+      pendingAttributionId: null,
+      inspectId: null,
+
+      setView: (view) => set({ view }),
+      setAchievementsOpen: (open) => set({ achievementsOpen: open }),
+      setStatsOpen: (open) => set({ statsOpen: open }),
+      setInspect: (id) => set({ inspectId: id }),
+      closeNameModal: () => set({ nameModalOpen: false, pendingAttributionId: null }),
+
+      setPlayerName: (name) => {
+        const trimmed = name.trim().slice(0, 40);
+        if (!trimmed) return;
+        const pending = get().pendingAttributionId;
+        set({ playerName: trimmed, nameModalOpen: false, pendingAttributionId: null });
+        // Backfill the discovery that triggered the prompt.
+        if (pending) {
+          fetch("/api/attribute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ conceptId: pending, name: trimmed }),
+          }).catch(() => {});
+        }
+      },
 
       init: (starters) => {
         // Merge starters into whatever the player already has.
@@ -78,9 +137,24 @@ export const useGameStore = create<GameState>()(
           for (const c of starters) inv = addUnique(inv, c);
           return { inventory: inv };
         });
-        // Establish the baseline level silently — no pop-up on load/reload.
+        // Establish baselines silently — no pop-ups on load/reload.
         get().syncLevel(true);
+        get().checkAchievements(true);
       },
+
+      checkAchievements: (silent) => {
+        const satisfied = evaluate(deriveState(get().inventory, get().level));
+        const have = new Set(get().achievements);
+        const newly = satisfied.filter((k) => !have.has(k));
+        if (newly.length === 0) return;
+        set((s) => ({
+          achievements: [...s.achievements, ...newly],
+          achievementQueue: silent ? s.achievementQueue : [...s.achievementQueue, ...newly],
+        }));
+      },
+
+      dismissAchievement: () =>
+        set((s) => ({ achievementQueue: s.achievementQueue.slice(1) })),
 
       syncLevel: (silent) => {
         const { level } = levelFromXp(totalXp(get().inventory));
@@ -139,7 +213,11 @@ export const useGameStore = create<GameState>()(
           const request = fetch("/api/combine", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ leftId: a.concept.id, rightId: b.concept.id }),
+            body: JSON.stringify({
+              leftId: a.concept.id,
+              rightId: b.concept.id,
+              discovererName: get().playerName ?? undefined,
+            }),
           }).then(async (res) => {
             if (!res.ok) throw new Error(`combine failed: ${res.status}`);
             return (await res.json()) as CombineResult;
@@ -169,15 +247,37 @@ export const useGameStore = create<GameState>()(
             },
           }));
 
-          // A newly unlocked concept may have pushed us over a level threshold.
+          // A newly unlocked concept may have pushed us over a level threshold
+          // and/or satisfied achievements.
           get().syncLevel(false);
+          get().checkAchievements(false);
 
-          // If this element is new to the player, speculatively pre-generate it
-          // against a sample of their inventory so the next crafts are instant.
+          // If this element is new to the player, record it on the timeline and
+          // speculatively pre-generate it against a sample of their inventory so
+          // the next crafts are instant.
           const isNewToPlayer = !inventoryBefore.some((c) => c.id === data.result.id);
           if (isNewToPlayer) {
+            set((s) => ({
+              timeline: [
+                ...s.timeline.slice(-249),
+                {
+                  id: data.result.id,
+                  name: data.result.name,
+                  emoji: data.result.emoji,
+                  rarity: data.result.rarity,
+                  isFirstCraft: data.isFirstCraft,
+                  at: Date.now(),
+                },
+              ],
+            }));
             const others = shuffle(inventoryBefore).slice(0, 10);
             prefetchPairs(others.map((c) => ({ leftId: data.result.id, rightId: c.id })));
+
+            // First time this player is the *global* first discoverer and hasn't
+            // named themselves yet → ask once, then remember + attribute.
+            if (data.isNewDiscovery && !get().playerName) {
+              set({ nameModalOpen: true, pendingAttributionId: data.result.id });
+            }
           }
 
           // Let the burst play, then settle to a resting tile.
@@ -216,6 +316,9 @@ export const useGameStore = create<GameState>()(
           y,
         })),
         discoveredIds: s.discoveredIds,
+        achievements: s.achievements,
+        timeline: s.timeline,
+        playerName: s.playerName,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;

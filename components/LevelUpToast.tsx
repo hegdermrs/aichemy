@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { ChevronsUp } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 
 const GOLD = "#fbbf24";
@@ -49,8 +50,8 @@ export function LevelUpToast() {
               {levelUp.level}
             </motion.span>
             <div className="leading-tight">
-              <div className="label" style={{ color: GOLD }}>
-                Level up
+              <div className="label flex items-center gap-1" style={{ color: GOLD }}>
+                <ChevronsUp size={11} /> Level up
               </div>
               <div className="text-[17px] font-semibold tracking-tight">
                 Level {levelUp.level}

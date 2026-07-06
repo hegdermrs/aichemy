@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { TopBar } from "@/components/TopBar";
 import { InfiniteCanvas } from "@/components/InfiniteCanvas";
+import { GraphView } from "@/components/GraphView";
 import { Inventory } from "@/components/Inventory";
 import { DiscoveryToast } from "@/components/DiscoveryToast";
 import { LevelUpToast } from "@/components/LevelUpToast";
+import { AchievementToast } from "@/components/AchievementToast";
+import { AchievementsPanel } from "@/components/AchievementsPanel";
+import { StatsPanel } from "@/components/StatsPanel";
+import { NameModal } from "@/components/NameModal";
+import { ElementDetail } from "@/components/ElementDetail";
 import { prefetchPairs } from "@/lib/client-api";
 import type { ConceptDTO } from "@/lib/types";
 
@@ -24,6 +30,7 @@ function warmStarterPairs(starters: ConceptDTO[]) {
 
 export default function Home() {
   const init = useGameStore((s) => s.init);
+  const view = useGameStore((s) => s.view);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -51,11 +58,16 @@ export default function Home() {
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden">
-      <InfiniteCanvas />
+      {view === "graph" ? <GraphView /> : <InfiniteCanvas />}
       <TopBar />
       <DiscoveryToast />
       <LevelUpToast />
-      <Inventory />
+      <AchievementToast />
+      <AchievementsPanel />
+      <StatsPanel />
+      <ElementDetail />
+      <NameModal />
+      {view === "board" && <Inventory />}
       {!ready && (
         <div className="absolute inset-0 z-50 grid place-items-center bg-[var(--bg)]">
           <div className="animate-pulse text-sm text-muted">Loading concepts…</div>

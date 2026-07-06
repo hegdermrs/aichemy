@@ -8,6 +8,7 @@
 // On serverless (Vercel), move this to a durable queue (e.g. Upstash QStash)
 // since work after the response returns isn't guaranteed to run.
 import { prime } from "./combine";
+import { recordPrefetchGenerated, recordPrefetchQueued } from "./metrics";
 
 export interface PrefetchPair {
   leftId: string;
@@ -33,6 +34,10 @@ export function enqueuePrefetch(pairs: PrefetchPair[]): number {
     queue.push(p);
     added += 1;
   }
+  if (added > 0) {
+    recordPrefetchQueued(added);
+    console.log(`[prefetch] +${added} queued (queue=${queue.length}, active=${active})`);
+  }
   pump();
   return added;
 }
@@ -41,9 +46,16 @@ function pump(): void {
   while (active < MAX_CONCURRENT && queue.length > 0) {
     const job = queue.shift()!;
     active += 1;
+    const started = Date.now();
     prime(job.leftId, job.rightId)
-      .catch(() => {
-        /* prefetch is best-effort */
+      .then((generated) => {
+        if (generated) recordPrefetchGenerated();
+        console.log(
+          `[prefetch] ${generated ? "generated" : "already-cached"} in ${Date.now() - started}ms (queue=${queue.length}, active=${active - 1})`,
+        );
+      })
+      .catch((err) => {
+        console.warn("[prefetch] failed:", (err as Error)?.message);
       })
       .finally(() => {
         active -= 1;

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { combine, CombineError } from "@/lib/combine";
+import { recordCombine } from "@/lib/metrics";
 
 export const runtime = "nodejs";
 
 const BodySchema = z.object({
   leftId: z.string().min(1),
   rightId: z.string().min(1),
-  userId: z.string().min(1).optional(),
+  discovererName: z.string().max(40).optional(),
 });
 
 export async function POST(req: Request) {
@@ -31,9 +32,10 @@ export async function POST(req: Request) {
     const result = await combine(
       parsed.data.leftId,
       parsed.data.rightId,
-      parsed.data.userId,
+      parsed.data.discovererName,
     );
     const ms = Math.round(performance.now() - started);
+    recordCombine(result.source, ms);
     return NextResponse.json({ ...result, ms });
   } catch (err) {
     if (err instanceof CombineError) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { Trash2 } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { prefetchPairs } from "@/lib/client-api";
 import { CanvasCard } from "./CanvasCard";
@@ -18,6 +19,8 @@ export function InfiniteCanvas() {
   const moveCard = useGameStore((s) => s.moveCard);
   const removeCard = useGameStore((s) => s.removeCard);
   const combineOnCanvas = useGameStore((s) => s.combineOnCanvas);
+  const clearCanvas = useGameStore((s) => s.clearCanvas);
+  const setInspect = useGameStore((s) => s.setInspect);
 
   const draggingId = useRef<string | null>(null);
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
@@ -94,6 +97,7 @@ export function InfiniteCanvas() {
             onDragEndCard={handleDragEnd}
             onMove={moveCard}
             onRemove={removeCard}
+            onInspect={setInspect}
           />
         ))}
       </AnimatePresence>
@@ -101,12 +105,28 @@ export function InfiniteCanvas() {
       {canvas.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-[15px] font-medium text-fg/75">The crucible is empty</p>
+            <p className="text-[15px] font-medium text-fg/75">The canvas is empty</p>
             <p className="label mt-2">
               Draw an element from your inventory · drop one onto another to transmute
             </p>
           </div>
         </div>
+      )}
+
+      {/* Prominent destructive action, out on its own. */}
+      {canvas.length > 0 && (
+        <button
+          onClick={clearCanvas}
+          className="pointer-events-auto absolute bottom-5 left-5 z-30 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition"
+          style={{
+            background: "linear-gradient(180deg,#f0553f,#dc2626)",
+            border: "1px solid #f87171",
+            boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.2), 0 8px 22px -8px rgba(220,38,38,0.6)",
+          }}
+        >
+          <Trash2 size={15} />
+          Clear canvas
+        </button>
       )}
     </div>
   );

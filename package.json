@@ -7,23 +7,29 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "setup": "docker compose up -d && prisma generate && prisma db push && tsx prisma/seed.ts"
+    "setup": "docker compose up -d && prisma generate && prisma db push && tsx prisma/seed.ts",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "start:prod": "prisma migrate deploy && next start"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
+    "d3-force": "^3.0.0",
     "framer-motion": "^12.0.0",
     "ioredis": "^5.4.2",
     "lru-cache": "^11.0.2",
+    "lucide-react": "^1.23.0",
     "nanoid": "^5.0.9",
     "next": "16.2.10",
     "openai": "^4.104.0",
@@ -34,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/d3-force": "^3.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

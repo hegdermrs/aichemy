@@ -31,7 +31,7 @@ const inflight = new Map<string, Promise<EnsureResult>>();
 export async function combine(
   leftId: string,
   rightId: string,
-  userId?: string,
+  discovererName?: string | null,
 ): Promise<CombineResult> {
   const { left, right } = await loadPair(leftId, rightId);
   const { key: pairKey } = normalizePair(left.name, right.name);
@@ -67,7 +67,7 @@ export async function combine(
   }
 
   // Tier 3 — generate (dedup-locked). May already be running from a prefetch.
-  const ensured = await ensureRecipe(pairKey, left, right, userId);
+  const ensured = await ensureRecipe(pairKey, left, right, discovererName);
   void bump(pairKey, ensured.result.id);
   return { ...ensured, source: "generated" };
 }
@@ -77,24 +77,25 @@ export async function combine(
  * counting a craft or touching stats. Safe to fire-and-forget. Returns fast if
  * the recipe is already known.
  */
-export async function prime(leftId: string, rightId: string): Promise<void> {
+export async function prime(leftId: string, rightId: string): Promise<boolean> {
   const pair = await loadPair(leftId, rightId).catch(() => null);
-  if (!pair) return;
+  if (!pair) return false;
   const { left, right } = pair;
   const { key: pairKey } = normalizePair(left.name, right.name);
 
-  if (recipeMem.get(pairKey)) return;
-  if (await redisGet(redisPairKey(pairKey))) return;
-  if (await prisma.recipe.findUnique({ where: { pairKey }, select: { id: true } })) return;
+  if (recipeMem.get(pairKey)) return false;
+  if (await redisGet(redisPairKey(pairKey))) return false;
+  if (await prisma.recipe.findUnique({ where: { pairKey }, select: { id: true } })) return false;
 
-  await ensureRecipe(pairKey, left, right, undefined);
+  const ensured = await ensureRecipe(pairKey, left, right, undefined);
+  return ensured.isFirstCraft;
 }
 
 async function ensureRecipe(
   pairKey: string,
   left: Concept,
   right: Concept,
-  userId?: string,
+  discovererName?: string | null,
 ): Promise<EnsureResult> {
   // A concurrent prime/combine may have just persisted it.
   const found = await prisma.recipe.findUnique({
@@ -108,7 +109,7 @@ async function ensureRecipe(
   const running = inflight.get(pairKey);
   if (running) return running;
 
-  const job = doGenerate(pairKey, left, right, userId);
+  const job = doGenerate(pairKey, left, right, discovererName);
   inflight.set(pairKey, job);
   try {
     return await job;
@@ -121,9 +122,10 @@ async function doGenerate(
   pairKey: string,
   left: Concept,
   right: Concept,
-  userId?: string,
+  discovererName?: string | null,
 ): Promise<EnsureResult> {
   const { concept: gen } = await generateConcept(left.name, right.name);
+  const discoverer = discovererName?.trim() || null;
 
   try {
     const { resultConcept, isNewConcept } = await prisma.$transaction(async (tx) => {
@@ -140,7 +142,7 @@ async function doGenerate(
             description: gen.description,
             category: gen.category,
             rarity: gen.rarity,
-            firstDiscoveryUserId: userId ?? null,
+            firstDiscovererName: discoverer,
           },
         }));
 
@@ -152,7 +154,6 @@ async function doGenerate(
           resultConceptId: resultConcept.id,
           isFirstDiscovery: isNew,
           craftCount: 0,
-          firstDiscoveryUserId: userId ?? null,
         },
       });
 

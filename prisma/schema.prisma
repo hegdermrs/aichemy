@@ -31,6 +31,10 @@ model Concept {
   craftCount  Int      @default(0)
   createdAt   DateTime @default(now())
 
+  // Display name of the player who first discovered this concept (anonymous,
+  // no accounts). Set once, on first creation; synced to everyone.
+  firstDiscovererName String?
+
   firstDiscoveryUserId String?
   firstDiscoveryUser   User?   @relation("ConceptDiscoveries", fields: [firstDiscoveryUserId], references: [id])
 

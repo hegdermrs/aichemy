@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { ConceptCardFace } from "./ConceptCardFace";
 import { RARITIES, RARITY_META, type ConceptDTO } from "@/lib/types";
@@ -117,9 +118,10 @@ export function Inventory() {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="panel pointer-events-auto absolute right-3 top-1/2 z-30 -translate-y-1/2 rounded-l-xl px-2 py-4 text-fg"
+        className="panel pointer-events-auto absolute right-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-2 rounded-l-xl px-2 py-4 text-fg"
         aria-label="Open inventory"
       >
+        <ChevronLeft size={14} className="text-muted" />
         <span className="label [writing-mode:vertical-rl]">Inventory · {inventory.length}</span>
       </button>
     );
@@ -145,10 +147,10 @@ export function Inventory() {
             </div>
             <button
               onClick={() => setCollapsed(true)}
-              className="label hover:text-fg"
+              className="label flex items-center gap-0.5 hover:text-fg"
               aria-label="Collapse inventory"
             >
-              Hide ›
+              Hide <ChevronRight size={12} />
             </button>
           </div>
 
@@ -210,12 +212,18 @@ export function Inventory() {
 
         {/* Search */}
         <div className="px-4 pt-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search inventory"
-            className="w-full rounded-md border border-[var(--line)] bg-black/25 px-3 py-1.5 text-sm outline-none placeholder:text-[var(--faint)] focus:border-[var(--line-strong)]"
-          />
+          <div className="relative">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--faint)]"
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search inventory"
+              className="w-full rounded-md border border-[var(--line)] bg-black/25 py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-[var(--faint)] focus:border-[var(--line-strong)]"
+            />
+          </div>
         </div>
 
         {/* Category filter */}
@@ -256,7 +264,7 @@ export function Inventory() {
         </div>
 
         <div className="border-t border-[var(--line)] px-4 py-2.5">
-          <span className="label">Draw an element onto the crucible · drop two together to transmute</span>
+          <span className="label">Draw an element onto the canvas · drop two together to transmute</span>
         </div>
       </aside>
 
