@@ -115,21 +115,21 @@ export function InfiniteCanvas() {
         ))}
       </AnimatePresence>
 
-      {/* Transmuting indicator */}
+      {/* Transmuting indicator — sits exactly where the cards converge */}
       <AnimatePresence>
         {combining && mergePoint && (
           <motion.div
-            className="pointer-events-none absolute z-50"
-            style={{ left: mergePoint.x, top: mergePoint.y - 50 }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            className="pointer-events-none absolute z-50 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: mergePoint.x, top: mergePoint.y }}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.25 }}
           >
-            <div className="flex -translate-x-1/2 items-center gap-2 rounded-xl px-4 py-2.5" style={{
-              background: "linear-gradient(180deg,rgba(250,204,21,0.12),rgba(250,204,21,0.04))",
-              border: "1px solid rgba(250,204,21,0.25)",
-              boxShadow: "0 0 24px -8px rgba(250,204,21,0.3)",
+            <div className="flex items-center gap-2 rounded-xl px-4 py-2.5" style={{
+              background: "linear-gradient(180deg,rgba(250,204,21,0.14),rgba(250,204,21,0.05))",
+              border: "1px solid rgba(250,204,21,0.28)",
+              boxShadow: "0 0 28px -6px rgba(250,204,21,0.35)",
             }}>
               <motion.span
                 animate={{ rotate: [0, 10, -10, 0] }}

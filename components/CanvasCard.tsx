@@ -68,7 +68,7 @@ export function CanvasCard({
       variants={{
         idle: { scale: 1, opacity: 1 },
         target: { scale: 1.06, opacity: 1 },
-        busy: { scale: 0.42, opacity: 0.15 },
+        busy: { scale: 0, opacity: 0 },
         crafted: { scale: [0.25, 1.16, 1], opacity: [0, 1, 1] },
       }}
       animate={state}
