@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Sparkles, Trash2 } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { prefetchPairs } from "@/lib/client-api";
 import { CanvasCard } from "./CanvasCard";
@@ -20,8 +20,18 @@ export function InfiniteCanvas() {
   const removeCard = useGameStore((s) => s.removeCard);
   const combineOnCanvas = useGameStore((s) => s.combineOnCanvas);
   const clearCanvas = useGameStore((s) => s.clearCanvas);
+  const combining = useGameStore((s) => s.combining);
   const setInspect = useGameStore((s) => s.setInspect);
   const inventoryHoverTarget = useGameStore((s) => s.hoverTargetId);
+
+  // Midpoint of merging cards for the "Transmuting..." label.
+  const mergePoint = useMemo(() => {
+    const busy = canvas.filter((c) => c.busy);
+    if (busy.length === 0) return null;
+    const mx = busy.reduce((s, c) => s + (c.mergeX ?? c.x), 0) / busy.length;
+    const my = busy.reduce((s, c) => s + (c.mergeY ?? c.y), 0) / busy.length;
+    return { x: mx, y: my };
+  }, [canvas]);
 
   const draggingId = useRef<string | null>(null);
   const [localHoverTargetId, setLocalHoverTargetId] = useState<string | null>(null);
@@ -103,6 +113,34 @@ export function InfiniteCanvas() {
             onInspect={setInspect}
           />
         ))}
+      </AnimatePresence>
+
+      {/* Transmuting indicator */}
+      <AnimatePresence>
+        {combining && mergePoint && (
+          <motion.div
+            className="pointer-events-none absolute z-50"
+            style={{ left: mergePoint.x, top: mergePoint.y - 50 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="flex -translate-x-1/2 items-center gap-2 rounded-xl px-4 py-2.5" style={{
+              background: "linear-gradient(180deg,rgba(250,204,21,0.12),rgba(250,204,21,0.04))",
+              border: "1px solid rgba(250,204,21,0.25)",
+              boxShadow: "0 0 24px -8px rgba(250,204,21,0.3)",
+            }}>
+              <motion.span
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Sparkles size={15} className="text-amber-400" />
+              </motion.span>
+              <span className="text-sm font-semibold text-amber-200">Transmuting...</span>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {canvas.length === 0 && (
