@@ -1,7 +1,9 @@
 "use client";
 
-import { BarChart3, FlaskConical, Trophy } from "lucide-react";
+import Image from "next/image";
+import { BarChart3, Trophy } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
+import logo from "@/app/logo.png";
 
 export function TopBar() {
   const view = useGameStore((s) => s.view);
@@ -19,10 +21,9 @@ export function TopBar() {
             background: "linear-gradient(180deg,var(--surface-3),var(--surface-1))",
             border: "1px solid var(--line)",
             boxShadow: "inset 0 1px 0 0 var(--hi)",
-            color: "#f5b942",
           }}
         >
-          <FlaskConical size={18} />
+          <Image src={logo} alt="AIchemy" priority className="h-6 w-auto" />
         </div>
         <h1 className="text-[16px] font-semibold tracking-tight">
           <span
