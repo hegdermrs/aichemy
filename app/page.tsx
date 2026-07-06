@@ -14,6 +14,7 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { NameModal } from "@/components/NameModal";
 import { ElementDetail } from "@/components/ElementDetail";
 import { HowToPlay } from "@/components/HowToPlay";
+import { useBackgroundPrefetch } from "@/lib/useBackgroundPrefetch";
 import { prefetchPairs } from "@/lib/client-api";
 import type { ConceptDTO } from "@/lib/types";
 
@@ -56,6 +57,8 @@ export default function Home() {
       cancelled = true;
     };
   }, [init]);
+
+  useBackgroundPrefetch();
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden">
