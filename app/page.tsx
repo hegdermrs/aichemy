@@ -13,6 +13,7 @@ import { AchievementsPanel } from "@/components/AchievementsPanel";
 import { StatsPanel } from "@/components/StatsPanel";
 import { NameModal } from "@/components/NameModal";
 import { ElementDetail } from "@/components/ElementDetail";
+import { HowToPlay } from "@/components/HowToPlay";
 import { prefetchPairs } from "@/lib/client-api";
 import type { ConceptDTO } from "@/lib/types";
 
@@ -66,6 +67,7 @@ export default function Home() {
       <AchievementsPanel />
       <StatsPanel />
       <ElementDetail />
+      <HowToPlay />
       <NameModal />
       {view === "board" && <Inventory />}
       {!ready && (

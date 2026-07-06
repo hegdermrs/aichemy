@@ -62,6 +62,8 @@ interface GameState {
   nameModalOpen: boolean;
   pendingAttributionId: string | null; // concept awaiting a first-time name
   inspectId: string | null; // concept whose detail card is open
+  howToPlayOpen: boolean;
+  hoverTargetId: string | null; // canvas card being hovered by an inventory drag
 
   init: (starters: ConceptDTO[]) => void;
   setView: (view: "board" | "graph") => void;
@@ -72,11 +74,14 @@ interface GameState {
   setPlayerName: (name: string) => void;
   closeNameModal: () => void;
   setInspect: (id: string | null) => void;
+  setHowToPlayOpen: (open: boolean) => void;
+  setHoverTargetId: (id: string | null) => void;
   spawnCard: (concept: ConceptDTO, x: number, y: number) => void;
   moveCard: (instanceId: string, x: number, y: number) => void;
   removeCard: (instanceId: string) => void;
   clearCanvas: () => void;
   combineOnCanvas: (aId: string, bId: string) => Promise<void>;
+  combineFromInventory: (concept: ConceptDTO, targetInstanceId: string, dropX: number, dropY: number) => Promise<void>;
   dismissDiscovery: () => void;
   syncLevel: (silent: boolean) => void;
   dismissLevelUp: () => void;
@@ -108,11 +113,15 @@ export const useGameStore = create<GameState>()(
       nameModalOpen: false,
       pendingAttributionId: null,
       inspectId: null,
+      howToPlayOpen: false,
+      hoverTargetId: null,
 
       setView: (view) => set({ view }),
       setAchievementsOpen: (open) => set({ achievementsOpen: open }),
       setStatsOpen: (open) => set({ statsOpen: open }),
       setInspect: (id) => set({ inspectId: id }),
+      setHowToPlayOpen: (open) => set({ howToPlayOpen: open }),
+      setHoverTargetId: (id) => set({ hoverTargetId: id }),
       closeNameModal: () => set({ nameModalOpen: false, pendingAttributionId: null }),
 
       setPlayerName: (name) => {
@@ -296,6 +305,110 @@ export const useGameStore = create<GameState>()(
             combining: false,
             canvas: s.canvas.map((it) =>
               it.instanceId === aId || it.instanceId === bId
+                ? { ...it, busy: false, mergeX: undefined, mergeY: undefined }
+                : it,
+            ),
+          }));
+        }
+      },
+
+      combineFromInventory: async (concept, targetInstanceId, dropX, dropY) => {
+        const state = get();
+        const target = state.canvas.find((c) => c.instanceId === targetInstanceId);
+        if (!target || target.busy || state.combining) return;
+        const inventoryBefore = state.inventory;
+
+        const mergeX = (target.x + dropX) / 2;
+        const mergeY = (target.y + dropY) / 2;
+
+        // Target card drifts toward the drop point; inventory card is not yet on canvas.
+        set((s) => ({
+          combining: true,
+          canvas: s.canvas.map((it) =>
+            it.instanceId === targetInstanceId
+              ? { ...it, busy: true, mergeX, mergeY }
+              : it,
+          ),
+        }));
+
+        const minAnim = new Promise((r) => setTimeout(r, 380));
+
+        try {
+          const request = fetch("/api/combine", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              leftId: concept.id,
+              rightId: target.concept.id,
+              discovererName: get().playerName ?? undefined,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) throw new Error(`combine failed: ${res.status}`);
+            return (await res.json()) as CombineResult;
+          });
+
+          const [data] = await Promise.all([request, minAnim]);
+          const newId = nanoid(8);
+
+          set((s) => ({
+            combining: false,
+            inventory: addUnique(s.inventory, data.result),
+            discoveredIds: s.discoveredIds.includes(data.result.id)
+              ? s.discoveredIds
+              : [...s.discoveredIds, data.result.id],
+            canvas: [
+              ...s.canvas.filter((it) => it.instanceId !== targetInstanceId),
+              { instanceId: newId, concept: data.result, x: mergeX, y: mergeY, justCrafted: true },
+            ],
+            lastDiscovery: {
+              concept: data.result,
+              isNewDiscovery: data.isNewDiscovery,
+              isFirstCraft: data.isFirstCraft,
+              source: data.source,
+              at: Date.now(),
+            },
+            inspectId: data.result.id,
+          }));
+
+          get().syncLevel(false);
+          get().checkAchievements(false);
+
+          const isNewToPlayer = !inventoryBefore.some((c) => c.id === data.result.id);
+          if (isNewToPlayer) {
+            set((s) => ({
+              timeline: [
+                ...s.timeline.slice(-249),
+                {
+                  id: data.result.id,
+                  name: data.result.name,
+                  emoji: data.result.emoji,
+                  rarity: data.result.rarity,
+                  isFirstCraft: data.isFirstCraft,
+                  at: Date.now(),
+                },
+              ],
+            }));
+            const others = shuffle(inventoryBefore).slice(0, 10);
+            prefetchPairs(others.map((c) => ({ leftId: data.result.id, rightId: c.id })));
+
+            if (data.isNewDiscovery && !get().playerName) {
+              set({ nameModalOpen: true, pendingAttributionId: data.result.id });
+            }
+          }
+
+          setTimeout(() => {
+            set((s) => ({
+              canvas: s.canvas.map((it) =>
+                it.instanceId === newId ? { ...it, justCrafted: false } : it,
+              ),
+            }));
+          }, 850);
+        } catch (err) {
+          console.error(err);
+          set((s) => ({
+            combining: false,
+            canvas: s.canvas.map((it) =>
+              it.instanceId === targetInstanceId
                 ? { ...it, busy: false, mergeX: undefined, mergeY: undefined }
                 : it,
             ),

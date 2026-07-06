@@ -17,6 +17,8 @@ type DragState = { concept: ConceptDTO; x: number; y: number } | null;
 export function Inventory() {
   const inventory = useGameStore((s) => s.inventory);
   const spawnCard = useGameStore((s) => s.spawnCard);
+  const combineFromInventory = useGameStore((s) => s.combineFromInventory);
+  const setHoverTargetId = useGameStore((s) => s.setHoverTargetId);
   const levelUp = useGameStore((s) => s.levelUp);
 
   const [query, setQuery] = useState("");
@@ -92,12 +94,18 @@ export function Inventory() {
       moved.current = true;
     }
     setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+    // Highlight canvas card under the pointer.
+    const el = document
+      .elementsFromPoint(e.clientX, e.clientY)
+      .find((el) => (el as HTMLElement).dataset?.canvasCard) as HTMLElement | undefined;
+    setHoverTargetId(el?.dataset.canvasCard ?? null);
   };
 
   const onTileUp = (e: React.PointerEvent) => {
     const concept = dragConcept.current;
     dragConcept.current = null;
     setDrag(null);
+    setHoverTargetId(null);
     if (!concept) return;
 
     const panel = panelRef.current?.getBoundingClientRect();
@@ -110,7 +118,18 @@ export function Inventory() {
     if (!moved.current) {
       spawnAtCenter(concept); // treated as a click
     } else if (!overPanel) {
-      spawnCard(concept, e.clientX - CARD_W / 2, Math.max(70, e.clientY - CARD_H / 2));
+      // Check if dropped on a canvas card — combine directly.
+      const targetEl = document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .find((el) => (el as HTMLElement).dataset?.canvasCard) as HTMLElement | undefined;
+      const targetInstanceId = targetEl?.dataset.canvasCard;
+      if (targetInstanceId) {
+        const cardX = e.clientX - CARD_W / 2;
+        const cardY = Math.max(70, e.clientY - CARD_H / 2);
+        combineFromInventory(concept, targetInstanceId, cardX, cardY);
+      } else {
+        spawnCard(concept, e.clientX - CARD_W / 2, Math.max(70, e.clientY - CARD_H / 2));
+      }
     }
   };
 
@@ -264,7 +283,7 @@ export function Inventory() {
         </div>
 
         <div className="border-t border-[var(--line)] px-4 py-2.5">
-          <span className="label">Draw an element onto the canvas · drop two together to transmute</span>
+          <span className="label">Drag onto a card to transmute · tap to place on canvas</span>
         </div>
       </aside>
 

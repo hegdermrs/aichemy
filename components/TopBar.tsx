@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { BarChart3, Trophy } from "lucide-react";
+import { BarChart3, HelpCircle, Trophy } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import logo from "@/app/logo.png";
 
@@ -10,6 +10,7 @@ export function TopBar() {
   const setView = useGameStore((s) => s.setView);
   const setAchievementsOpen = useGameStore((s) => s.setAchievementsOpen);
   const setStatsOpen = useGameStore((s) => s.setStatsOpen);
+  const setHowToPlayOpen = useGameStore((s) => s.setHowToPlayOpen);
   const unlockedCount = useGameStore((s) => s.achievements.length);
 
   return (
@@ -57,6 +58,14 @@ export function TopBar() {
           </button>
         ))}
       </div>
+
+      <button
+        onClick={() => setHowToPlayOpen(true)}
+        className="panel pointer-events-auto rounded-lg px-3 py-2 text-muted transition hover:text-fg"
+        aria-label="How to play"
+      >
+        <HelpCircle size={16} />
+      </button>
 
       <button
         onClick={() => setStatsOpen(true)}

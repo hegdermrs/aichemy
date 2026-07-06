@@ -21,9 +21,12 @@ export function InfiniteCanvas() {
   const combineOnCanvas = useGameStore((s) => s.combineOnCanvas);
   const clearCanvas = useGameStore((s) => s.clearCanvas);
   const setInspect = useGameStore((s) => s.setInspect);
+  const inventoryHoverTarget = useGameStore((s) => s.hoverTargetId);
 
   const draggingId = useRef<string | null>(null);
-  const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
+  const [localHoverTargetId, setLocalHoverTargetId] = useState<string | null>(null);
+  // Merged: canvas-to-canvas drag target OR inventory-to-canvas drag target.
+  const hoverTargetId = localHoverTargetId ?? inventoryHoverTarget;
   // Pairs already primed during the current drag, so we prefetch each once.
   const primedThisDrag = useRef<Set<string>>(new Set());
 
@@ -54,7 +57,7 @@ export function InfiniteCanvas() {
   const handleDragMove = useCallback(
     (id: string) => {
       const target = findTarget(id);
-      setHoverTargetId((prev) => (prev === target ? prev : target));
+      setLocalHoverTargetId((prev) => (prev === target ? prev : target));
 
       // The moment we know which pair is about to be crafted, start generating
       // it in the background so the drop resolves instantly (or near-instantly).
@@ -77,7 +80,7 @@ export function InfiniteCanvas() {
     (id: string) => {
       const target = findTarget(id);
       draggingId.current = null;
-      setHoverTargetId(null);
+      setLocalHoverTargetId(null);
       if (target) void combineOnCanvas(target, id);
     },
     [findTarget, combineOnCanvas],
@@ -107,7 +110,7 @@ export function InfiniteCanvas() {
           <div className="text-center">
             <p className="text-[15px] font-medium text-fg/75">The canvas is empty</p>
             <p className="label mt-2">
-              Draw an element from your inventory · drop one onto another to transmute
+              Drag an element from inventory onto the canvas to begin
             </p>
           </div>
         </div>
