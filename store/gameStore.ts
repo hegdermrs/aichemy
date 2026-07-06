@@ -245,6 +245,7 @@ export const useGameStore = create<GameState>()(
               source: data.source,
               at: Date.now(),
             },
+            inspectId: data.result.id,
           }));
 
           // A newly unlocked concept may have pushed us over a level threshold
